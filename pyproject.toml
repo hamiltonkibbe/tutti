@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tutti"
-version = "0.1.0"
+version = "0.1.1"
 description = "Distributed Synchronization Primitives"
 authors = ["Hamilton Kibbe <ham@hamiltonkib.be>"]
 license = "MIT"
@@ -10,7 +10,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 redis = "^3.5.3"
 hiredis = "^2.0.0"
 
