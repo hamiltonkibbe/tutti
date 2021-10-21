@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "tutti"
+version = "0.1.0"
+description = "Distributed Synchronization Primitives"
+authors = ["Hamilton Kibbe <ham@hamiltonkib.be>"]
+license = "MIT"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Software Development :: Libraries"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+redis = "^3.5.3"
+hiredis = "^2.0.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+mypy = "^0.910"
+types-redis = "^3.5.15"
+Sphinx = "^4.2.0"
+sphinx-autobuild = "^2021.3.14"
+
+[tool.poetry.extras]
+asyncio = ["aioredis"]
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+files = "tutti,tests"
