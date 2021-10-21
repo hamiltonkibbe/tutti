@@ -4,6 +4,7 @@
 Tutti is a nearly drop-in replacement for python's built-in synchronization primitives that lets you fearlessly scale 
 your code across processes, machines, clouds and planets.
 
+Full Documentation available [on Read The Docs](https://tutti-py.readthedocs.io/en/latest/)
 ## Features
  
 - Mostly compatible with `threading` primitives
