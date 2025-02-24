@@ -15,7 +15,7 @@ from redis.asyncio import Redis
 from redis.asyncio.lock import Lock as RedisLock
 
 from tutti.base import AsyncLockABC, AsyncSemaphoreABC
-from tutti.utils import get_connection_info, RedisSemaphoreHandle
+from tutti.utils import get_redis_connection_info, RedisSemaphoreHandle
 
 
 async def acquire_lock(
@@ -91,7 +91,7 @@ class Lock(AsyncLockABC):
         blocking: bool = True,
         timeout: Optional[float] = None,
     ) -> None:
-        self._conn = Redis(**get_connection_info())
+        self._conn = Redis(**get_redis_connection_info())
         self._handle: Optional[RedisLock] = None
         self._blocking = blocking
         self._timeout = timeout
@@ -129,7 +129,7 @@ class Lock(AsyncLockABC):
 
 class Semaphore(AsyncSemaphoreABC):
     def __init__(self, lock_name: str, value: int = 1):
-        self._conn = Redis(**get_connection_info())
+        self._conn = Redis(**get_redis_connection_info())
         self._value = value
         self._handle: Optional[RedisSemaphoreHandle] = None
         self._lock_name = lock_name

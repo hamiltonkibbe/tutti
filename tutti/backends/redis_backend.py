@@ -14,16 +14,16 @@ from redis import Redis
 from redis.lock import Lock as RedisLock
 
 from tutti.base import LockABC, SemaphoreABC
-from tutti.utils import get_connection_info, get_name_from_caller, RedisSemaphoreHandle
+from tutti.utils import get_redis_connection_info, RedisSemaphoreHandle
 
 
 def acquire_lock(
     conn: Redis,
-    lock_name: Optional[str] = None,
+    lock_name: str,
     blocking: bool = True,
     timeout: float = -1
 ) -> Optional[RedisLock]:
-    lock_name = f"tutti-{lock_name if lock_name is not None else get_name_from_caller()}"
+    lock_name = f"tutti-{lock_name}"
     lock = conn.lock(lock_name, timeout=None, blocking_timeout=None if not blocking else timeout)
     try:
         lock.acquire()
@@ -38,11 +38,11 @@ def release_lock(conn: Redis, lock: RedisLock) -> bool:
 
 
 def acquire_semaphore(
-        conn: Redis,
-        lock_name: str,
-        value: int = 1,
-        blocking: bool = True,
-        timeout: float = -1
+    conn: Redis,
+    lock_name: str,
+    value: int = 1,
+    blocking: bool = True,
+    timeout: float = -1
 ) -> Optional[RedisSemaphoreHandle]:
     identifier = str(uuid.uuid4())
     czset = f"{lock_name}-owner"
@@ -84,12 +84,12 @@ def release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
 
 class Lock(LockABC):
 
-    def __init__(self, blocking: bool = True, timeout: Optional[float] = None, lock_name: Optional[str] = None) -> None:
-        self._conn = Redis(**get_connection_info())
+    def __init__(self, lock_name: str, blocking: bool = True, timeout: Optional[float] = None) -> None:
+        self._conn = Redis(**get_redis_connection_info())
         self._handle: Optional[RedisLock] = None
         self._blocking = blocking
         self._timeout = timeout
-        self._lock_name = lock_name if lock_name is not None else get_name_from_caller()
+        self._lock_name = lock_name
 
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
         lock = self._conn.lock(self._lock_name, timeout=None, blocking_timeout=timeout)
@@ -122,15 +122,15 @@ class Lock(LockABC):
 
 
 class Semaphore(SemaphoreABC):
-    def __init__(self, value: int = 1, lock_name: Optional[str] = None):
-        self._conn = Redis(**get_connection_info())
+    def __init__(self, lock_name: str, value: int = 1):
+        self._conn = Redis(**get_redis_connection_info())
         self._value = value
         self._handle: Optional[RedisSemaphoreHandle] = None
-        self._lock_name = lock_name if lock_name is not None else get_name_from_caller()
+        self._lock_name = lock_name
 
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
         timeout_float = -1 if timeout is None else timeout
-        with Lock(blocking, timeout, lock_name=f"{self._lock_name}-lock"):
+        with Lock(lock_name=f"{self._lock_name}-lock", blocking=blocking, timeout=timeout):
             self._handle = acquire_semaphore(self._conn, value=self._value, lock_name=self._lock_name, blocking=blocking, timeout=timeout_float)
             return self._handle is not None
 
