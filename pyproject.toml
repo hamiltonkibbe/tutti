@@ -1,33 +1,33 @@
-[tool.poetry]
+[project]
 name = "tutti"
 version = "0.1.1"
 description = "Distributed Synchronization Primitives"
-authors = ["Hamilton Kibbe <ham@hamiltonkib.be>"]
+authors = [{ name = "Hamilton Kibbe", email = "ham@hamiltonkib.be" } { name = "Tylor Dodge", email = "tylor.dodge1@gmail.com" }]
+requires-python = "~=3.10"
 license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Topic :: Software Development :: Libraries"
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "redis>=4.2,<5",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.7"
-redis = "^3.5.3"
-hiredis = "^2.0.0"
+[project.optional-dependencies]
+asyncio = []
 
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
-mypy = "^0.910"
-types-redis = "^3.5.15"
-Sphinx = "^4.2.0"
-sphinx-autobuild = "^2021.3.14"
-
-[tool.poetry.extras]
-asyncio = ["aioredis"]
-
+[dependency-groups]
+dev = [
+    "pytest~=5.2",
+    "mypy>=0.910,<0.911",
+    "types-redis>=4.2,<5",
+    "Sphinx>=4.2.0,<5",
+    "sphinx-autobuild>=2021.3.14,<2022",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.mypy]
 files = "tutti,tests"
