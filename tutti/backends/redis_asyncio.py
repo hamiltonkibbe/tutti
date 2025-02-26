@@ -9,6 +9,7 @@ import time
 from asyncio import sleep
 from typing import Optional
 
+import logging
 import uuid
 
 from redis.asyncio import Redis
@@ -16,6 +17,9 @@ from redis.asyncio.lock import Lock as RedisLock
 
 from tutti.base import AsyncLockABC, AsyncSemaphoreABC
 from tutti.utils import get_redis_connection_info, RedisSemaphoreHandle
+
+
+logger = logging.getLogger("tutti")
 
 
 async def acquire_lock(
@@ -29,22 +33,24 @@ async def acquire_lock(
     try:
         await lock.acquire()
         return lock
-    except:
+    except Exception as e:
+        logger.error(f"Error acquiring tutti lock: {e}")
         return None
 
 
-async def __release_lock(conn: Redis, lock: RedisLock) -> bool:
+async def release_lock(conn: Redis, lock: RedisLock) -> bool:
     await lock.release()
     return True
 
 
-async def __acquire_semaphore(
+async def acquire_semaphore(
     conn: Redis,
     lock_name: str,
     value: int = 1,
     blocking: bool = True,
     timeout: float = -1
 ) -> Optional[RedisSemaphoreHandle]:
+
     identifier = str(uuid.uuid4())
     czset = f"{lock_name}-owner"
     ctr = f"{lock_name}-counter"
@@ -59,7 +65,8 @@ async def __acquire_semaphore(
 
         pipeline.zinterstore(czset, {czset: 1, lock_name: 0})
         pipeline.incr(ctr)
-        counter = await pipeline.execute()[-1]
+        counter_coroutine = await pipeline.execute()
+        counter = counter_coroutine[-1]
         pipeline.zadd(lock_name, {identifier: now})
         pipeline.zadd(czset, {identifier: counter})
         pipeline.zrank(czset, identifier)
@@ -75,7 +82,7 @@ async def __acquire_semaphore(
         await sleep(0.001)
 
 
-async def __release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
+async def release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
     pipeline = conn.pipeline(transaction=True)
     pipeline.zrem(lock.name, lock.identifier)
     pipeline.zrem(f"{lock.name}-owner", lock.identifier)
@@ -90,28 +97,30 @@ class Lock(AsyncLockABC):
         lock_name: str,
         blocking: bool = True,
         timeout: Optional[float] = None,
+        conn: Optional[Redis] = None
     ) -> None:
-        self._conn = Redis(**get_redis_connection_info())
+        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._handle: Optional[RedisLock] = None
         self._blocking = blocking
         self._timeout = timeout
         self._lock_name = lock_name
 
     async def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
-        lock = self._conn.lock(self._lock_name, timeout=None, blocking_timeout=timeout)
+        lock = self._conn.lock(self._lock_name, timeout=timeout, blocking_timeout=timeout)
         try:
-            result = await lock.acquire()
+            result = await lock.acquire(blocking=blocking, blocking_timeout=timeout)
             if result:
                 self._handle = lock
             return result
-        except:
+        except Exception as e:
+            logger.error(f"Error acquiring redis lock: {e}")
             self._handle = None
             return False
 
     async def release(self) -> None:
         if self._handle is None:
             raise RuntimeError("Attempt to release unlocked lock.")
-        await __release_lock(self._conn, self._handle)
+        await release_lock(self._conn, self._handle)
 
     async def locked(self) -> bool:
         lock = self._conn.lock(self._lock_name)
@@ -126,34 +135,43 @@ class Lock(AsyncLockABC):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         return await self.release()
 
+    def _get_timeout(self, timeout: Optional[float] = None) -> Optional[float]:
+        return self._timeout if self._timeout is not None else timeout
+
 
 class Semaphore(AsyncSemaphoreABC):
-    def __init__(self, lock_name: str, value: int = 1):
+    def __init__(self, lock_name: str, value: int, timeout: float) -> None:
         self._conn = Redis(**get_redis_connection_info())
-        self._value = value
-        self._handle: Optional[RedisSemaphoreHandle] = None
         self._lock_name = lock_name
+        self._value = value
+        self._timeout = timeout
+        self._handle: Optional[RedisSemaphoreHandle] = None
 
     async def acquire(
         self,
         blocking: bool = True,
         timeout: Optional[float] = None
     ) -> bool:
-        timeout_float = -1 if timeout is None else timeout
+        timeout_float = self._get_timeout(timeout)
         lock_name = f"{self._lock_name}-lock"
-        async with Lock(lock_name, blocking, timeout):
-            self._handle = await __acquire_semaphore(
-                self._conn,
-                value=self._value,
-                lock_name=self._lock_name,
-                blocking=blocking,
-                timeout=timeout_float
-            )
+        async with Lock(lock_name, blocking, timeout_float, self._conn):
+            try:
+                self._handle = await acquire_semaphore(
+                    self._conn,
+                    value=self._value,
+                    lock_name=self._lock_name,
+                    blocking=blocking,
+                    timeout=timeout_float
+                )
+            except Exception as e:
+                logger.error(f"Error acquiring tutti semaphore: {e}")
+                self._handle = None
+                return False
             return self._handle is not None
 
     async def release(self, n: int = 1) -> None:
         if self._handle is not None:
-            await __release_semaphore(self._conn, self._handle)
+            await release_semaphore(self._conn, self._handle)
 
     async def __aenter__(self) -> "Semaphore":
         acquired = await self.acquire()
@@ -165,10 +183,13 @@ class Semaphore(AsyncSemaphoreABC):
         if self._handle:
             return await self.release()
 
+    def _get_timeout(self, timeout: Optional[float] = None) -> float:
+        return self._timeout if self._timeout is not None else timeout if timeout is not None else -1
+
 
 class BoundedSemaphore(Semaphore):
     async def release(self, n: int = 1) -> None:
-        if self._handle is None or not  await __release_semaphore(self._conn, self._handle):
+        if self._handle is None or not  await release_semaphore(self._conn, self._handle):
             raise ValueError("Semaphore released too many times")
 
 
