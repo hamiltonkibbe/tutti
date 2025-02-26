@@ -2,7 +2,7 @@
 name = "tutti"
 version = "0.1.1"
 description = "Distributed Synchronization Primitives"
-authors = [{ name = "Hamilton Kibbe", email = "ham@hamiltonkib.be" } { name = "Tylor Dodge", email = "tylor.dodge1@gmail.com" }]
+authors = [{ name = "Hamilton Kibbe", email = "ham@hamiltonkib.be" }, { name = "Tylor Dodge", email = "tylor.dodge1@gmail.com" }]
 requires-python = "~=3.10"
 license = "MIT"
 classifiers = [
