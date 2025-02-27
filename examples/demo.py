@@ -9,11 +9,13 @@ import time
 
 from colorama import Fore, Style
 
-from tutti import Lock, Semaphore
+from tutti.backends.redis import Lock, Semaphore
+
 
 def pprint(data, process_id):
     color = [Fore.CYAN, Fore.MAGENTA, Fore.YELLOW, Fore.GREEN, Fore.BLUE, Fore.RED][process_id]
     print(f"{color}    {data}{Style.RESET_ALL}")
+
 
 def use_protected_resource():
     # Just pretend...
@@ -23,15 +25,16 @@ def use_protected_resource():
 def access_exclusive_resource(process_id: int) -> None:
     """Use a distributed lock to limit access to a critical resource"""
 
-    with Lock():
+    with Lock("demo-time", timeout=5):
         pprint(f"Process {process_id} Entering critical section", process_id)
         use_protected_resource()
         pprint(f"Process {process_id} Leaving critical section", process_id)
 
+
 def access_limited_resource(process_id: int) -> None:
     """Use a distributed semaphore to limit access to a critical resource"""
 
-    with Semaphore(value=2):
+    with Semaphore(lock_name="demo-time", value=2, timeout=5):
         pprint(f"Process {process_id} Entering critical section", process_id)
         use_protected_resource()
         pprint(f"Process {process_id} Leaving critical section", process_id)

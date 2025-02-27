@@ -5,119 +5,103 @@
 
 """Redis distributed synchronization primitive backend"""
 
-import time
 from typing import Optional
 
 import logging
-import uuid
 
 from redis import Redis
 from redis.lock import Lock as RedisLock
 
 from tutti.base import LockABC, SemaphoreABC, TUTTI_LOGGER_NAME
 
-from .utils import get_redis_connection_info
+from .utils import (
+    get_redis_connection_info,
+    acquire_lock,
+    release_lock,
+    acquire_semaphore,
+    release_semaphore,
+    locked,
+)
 from .types import RedisSemaphoreHandle
 
 
 logger = logging.getLogger(TUTTI_LOGGER_NAME)
 
 
-def acquire_lock(
-    conn: Redis,
-    lock_name: str,
-    blocking: bool = True,
-    timeout: float = -1
-) -> Optional[RedisLock]:
-    lock_name = f"tutti-{lock_name}"
-    lock = conn.lock(lock_name, timeout=None, blocking_timeout=None if not blocking else timeout)
-    try:
-        lock.acquire()
-        return lock
-    except Exception as e:
-        logger.error(f"Error acquiring tutti lock: {e}", exc_info=True)
-        return None
+class RedisWrapper:
+    @staticmethod
+    def acquire_lock(
+        conn: Redis,
+        lock_name: str,
+        blocking: bool = True,
+        timeout: float | None = None
+    ) -> tuple[RedisLock, bool]:
+        return acquire_lock(conn, lock_name, blocking, timeout)
 
+    @staticmethod
+    def release_lock(conn: Redis, lock: RedisLock) -> bool:
+        return release_lock(conn, lock)
 
-def release_lock(conn: Redis, lock: RedisLock) -> bool:
-    lock.release()
-    return True
+    @staticmethod
+    def locked(conn: Redis, lock_name: str) -> bool:
+        return locked(conn, lock_name)
 
+    @staticmethod
+    def acquire_semaphore(
+        conn: Redis,
+        lock_name: str,
+        value: int = 1,
+        blocking: bool = True,
+        timeout: float = -1
+    ) -> Optional[RedisSemaphoreHandle]:
+        return acquire_semaphore(conn, lock_name, value, blocking, timeout)
 
-def acquire_semaphore(
-    conn: Redis,
-    lock_name: str,
-    value: int = 1,
-    blocking: bool = True,
-    timeout: float = -1
-) -> Optional[RedisSemaphoreHandle]:
-    identifier = str(uuid.uuid4())
-    czset = f"{lock_name}-owner"
-    ctr = f"{lock_name}-counter"
-
-    now = time.time()
-
-    while True:
-        pipeline = conn.pipeline(transaction=True)
-
-        if timeout >= 0:
-            pipeline.zremrangebyscore(lock_name, "-inf", now - timeout)
-
-        pipeline.zinterstore(czset, {czset: 1, lock_name: 0})
-        pipeline.incr(ctr)
-        counter = pipeline.execute()[-1]
-        pipeline.zadd(lock_name, {identifier: now})
-        pipeline.zadd(czset, {identifier: counter})
-        pipeline.zrank(czset, identifier)
-        result = pipeline.execute()
-        if result[-1] < value:
-            return RedisSemaphoreHandle(lock_name, identifier)
-        pipeline.zrem(lock_name, identifier)
-        pipeline.zrem(czset, identifier)
-        pipeline.execute()
-
-        if (not blocking) or (timeout >= 0 and time.time() > (now + timeout)):
-            return None
-        time.sleep(0.001)
-
-
-def release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
-    pipeline = conn.pipeline(transaction=True)
-    pipeline.zrem(lock.name, lock.identifier)
-    pipeline.zrem(f"{lock.name}-owner", lock.identifier)
-    result = pipeline.execute()
-    return bool(result[0])
+    @staticmethod
+    def release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
+        return release_semaphore(conn, lock)
 
 
 class Lock(LockABC):
 
-    def __init__(self, lock_name: str, timeout: float, blocking: bool = True) -> None:
-        self._conn = Redis(**get_redis_connection_info())
+    def __init__(
+        self,
+        lock_name: str,
+        timeout: float,
+        blocking: bool = True,
+        conn: Redis | None = None,
+        redis_wrapper: type[RedisWrapper] = RedisWrapper
+    ) -> None:
+        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._handle: Optional[RedisLock] = None
         self._blocking = blocking
         self._timeout = timeout
         self._lock_name = lock_name
+        self._redis_wrapper = redis_wrapper
 
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
-        lock = self._conn.lock(self._lock_name, timeout=None, blocking_timeout=timeout)
         try:
-            result = lock.acquire()
-            if result:
-                self._handle = lock
-            return result
+            lock, result = self._redis_wrapper.acquire_lock(
+                self._conn,
+                lock_name=self._lock_name,
+                blocking=blocking,
+                timeout=self._get_timeout(timeout)
+            )
         except Exception as e:
             logger.error(f"Error acquiring tutti lock: {e}", exc_info=True)
             self._handle = None
             return False
+        else:
+            if result:
+                self._handle = lock
+            return result
 
     def release(self) -> None:
         if self._handle is None:
             raise RuntimeError("Attempt to release unlocked lock.")
-        release_lock(self._conn, self._handle)
+        self._redis_wrapper.release_lock(self._conn, self._handle)
 
     def locked(self) -> bool:
-        lock = self._conn.lock(self._lock_name)
-        return lock.locked()
+        return self._redis_wrapper.locked(self._conn, self._lock_name)
 
     def __enter__(self) -> "Lock":
         acquired = self.acquire(self._blocking, self._timeout)
@@ -128,24 +112,38 @@ class Lock(LockABC):
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         return self.release()
 
+    def _get_timeout(self, timeout: Optional[float] = None) -> Optional[float]:
+        return self._timeout if self._timeout is not None else timeout
+
 
 class Semaphore(SemaphoreABC):
-    def __init__(self, lock_name: str, value: int, timeout: float):
+    def __init__(
+        self,
+        lock_name: str,
+        value: int,
+        timeout: float,
+        redis_wrapper: type[RedisWrapper] = RedisWrapper
+    ) -> None:
         self._conn = Redis(**get_redis_connection_info())
         self._value = value
         self._handle: Optional[RedisSemaphoreHandle] = None
         self._lock_name = lock_name
         self._timeout = timeout
+        self._redis_wrapper = redis_wrapper
 
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
+        timeout_float = self._get_timeout(timeout)
+        lock_name = f"{self._lock_name}-lock"
         with Lock(
-            lock_name=f"{self._lock_name}-lock",
+            lock_name=lock_name,
             blocking=blocking,
-            timeout=self._timeout
+            timeout=timeout_float,
+            conn=self._conn,
+            redis_wrapper=self._redis_wrapper
         ):
-            self._handle = acquire_semaphore(
+            self._handle = self._redis_wrapper.acquire_semaphore(
                 self._conn,
-                value=self._value, 
+                value=self._value,
                 lock_name=self._lock_name,
                 blocking=blocking,
                 timeout=self._timeout
@@ -154,7 +152,7 @@ class Semaphore(SemaphoreABC):
 
     def release(self, n: int = 1) -> None:
         if self._handle is not None:
-            release_semaphore(self._conn, self._handle)
+            self._redis_wrapper.release_semaphore(self._conn, self._handle)
 
     def __enter__(self) -> "Semaphore":
         acquired = self.acquire()
@@ -166,10 +164,13 @@ class Semaphore(SemaphoreABC):
         if self._handle:
             return self.release()
 
+    def _get_timeout(self, timeout: Optional[float] = None) -> float:
+        return self._timeout if self._timeout is not None else timeout if timeout is not None else -1
+
 
 class BoundedSemaphore(Semaphore):
     def release(self, n: int = 1) -> None:
-        if self._handle is None or not release_semaphore(self._conn, self._handle):
+        if self._handle is None or not self._redis_wrapper.release_semaphore(self._conn, self._handle):
             raise ValueError("Semaphore released too many times")
 
 
