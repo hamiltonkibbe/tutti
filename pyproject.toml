@@ -1,6 +1,6 @@
 [project]
 name = "tutti"
-version = "0.1.1"
+version = "1.0.0"
 description = "Distributed Synchronization Primitives"
 authors = [{ name = "Hamilton Kibbe", email = "ham@hamiltonkib.be" }, { name = "Tylor Dodge", email = "tylor.dodge1@gmail.com" }]
 requires-python = "~=3.10"

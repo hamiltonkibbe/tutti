@@ -5,13 +5,7 @@
 
 import os
 
-
-from typing import NamedTuple, TypedDict
-
-
-class RedisSemaphoreHandle(NamedTuple):
-    name: str
-    identifier: str
+from typing import TypedDict
 
 
 class RedisConnectionInfo(TypedDict):

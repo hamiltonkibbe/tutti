@@ -8,13 +8,19 @@
 import time
 from typing import Optional
 
+import logging
 import uuid
 
 from redis import Redis
 from redis.lock import Lock as RedisLock
 
-from tutti.base import LockABC, SemaphoreABC
-from tutti.utils import get_redis_connection_info, RedisSemaphoreHandle
+from tutti.base import LockABC, SemaphoreABC, TUTTI_LOGGER_NAME
+
+from .utils import get_redis_connection_info
+from .types import RedisSemaphoreHandle
+
+
+logger = logging.getLogger(TUTTI_LOGGER_NAME)
 
 
 def acquire_lock(
@@ -28,7 +34,8 @@ def acquire_lock(
     try:
         lock.acquire()
         return lock
-    except:
+    except Exception as e:
+        logger.error(f"Error acquiring tutti lock: {e}", exc_info=True)
         return None
 
 
@@ -84,7 +91,7 @@ def release_semaphore(conn: Redis, lock: RedisSemaphoreHandle) -> bool:
 
 class Lock(LockABC):
 
-    def __init__(self, lock_name: str, blocking: bool = True, timeout: Optional[float] = None) -> None:
+    def __init__(self, lock_name: str, timeout: float, blocking: bool = True) -> None:
         self._conn = Redis(**get_redis_connection_info())
         self._handle: Optional[RedisLock] = None
         self._blocking = blocking
@@ -98,7 +105,8 @@ class Lock(LockABC):
             if result:
                 self._handle = lock
             return result
-        except:
+        except Exception as e:
+            logger.error(f"Error acquiring tutti lock: {e}", exc_info=True)
             self._handle = None
             return False
 
@@ -122,16 +130,26 @@ class Lock(LockABC):
 
 
 class Semaphore(SemaphoreABC):
-    def __init__(self, lock_name: str, value: int = 1):
+    def __init__(self, lock_name: str, value: int, timeout: float):
         self._conn = Redis(**get_redis_connection_info())
         self._value = value
         self._handle: Optional[RedisSemaphoreHandle] = None
         self._lock_name = lock_name
+        self._timeout = timeout
 
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
-        timeout_float = -1 if timeout is None else timeout
-        with Lock(lock_name=f"{self._lock_name}-lock", blocking=blocking, timeout=timeout):
-            self._handle = acquire_semaphore(self._conn, value=self._value, lock_name=self._lock_name, blocking=blocking, timeout=timeout_float)
+        with Lock(
+            lock_name=f"{self._lock_name}-lock",
+            blocking=blocking,
+            timeout=self._timeout
+        ):
+            self._handle = acquire_semaphore(
+                self._conn,
+                value=self._value, 
+                lock_name=self._lock_name,
+                blocking=blocking,
+                timeout=self._timeout
+            )
             return self._handle is not None
 
     def release(self, n: int = 1) -> None:
@@ -153,7 +171,6 @@ class BoundedSemaphore(Semaphore):
     def release(self, n: int = 1) -> None:
         if self._handle is None or not release_semaphore(self._conn, self._handle):
             raise ValueError("Semaphore released too many times")
-
 
 
 __all__ = ["Lock", "Semaphore", "BoundedSemaphore"]

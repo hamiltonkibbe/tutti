@@ -15,11 +15,13 @@ import uuid
 from redis.asyncio import Redis
 from redis.asyncio.lock import Lock as RedisLock
 
-from tutti.base import AsyncLockABC, AsyncSemaphoreABC
-from tutti.utils import get_redis_connection_info, RedisSemaphoreHandle
+from tutti.base import AsyncLockABC, AsyncSemaphoreABC, TUTTI_LOGGER_NAME
+
+from .utils import get_redis_connection_info
+from .types import RedisSemaphoreHandle
 
 
-logger = logging.getLogger("tutti")
+logger = logging.getLogger(TUTTI_LOGGER_NAME)
 
 
 async def acquire_lock(
@@ -34,7 +36,7 @@ async def acquire_lock(
         await lock.acquire()
         return lock
     except Exception as e:
-        logger.error(f"Error acquiring tutti lock: {e}")
+        logger.error(f"Error acquiring tutti lock: {e}", exc_info=True)
         return None
 
 
@@ -191,7 +193,6 @@ class BoundedSemaphore(Semaphore):
     async def release(self, n: int = 1) -> None:
         if self._handle is None or not  await release_semaphore(self._conn, self._handle):
             raise ValueError("Semaphore released too many times")
-
 
 
 __all__ = ["Lock", "Semaphore", "BoundedSemaphore"]

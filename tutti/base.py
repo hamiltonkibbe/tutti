@@ -11,6 +11,9 @@ from types import TracebackType
 from typing import Optional, Type
 
 
+TUTTI_LOGGER_NAME = "tutti"
+
+
 class LockABC(ABC):
     """Abstract base class for Lock primitive
 
