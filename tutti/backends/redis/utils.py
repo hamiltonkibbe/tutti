@@ -8,6 +8,7 @@ import os
 import time
 import uuid
 
+from functools import lru_cache
 from typing import TypedDict
 
 from redis import Redis
@@ -24,6 +25,7 @@ class RedisConnectionInfo(TypedDict):
     db: int
 
 
+@lru_cache
 def get_redis_connection_info() -> RedisConnectionInfo:
     return {
         "host": os.getenv("TUTTI_REDIS_HOST", "localhost"),
