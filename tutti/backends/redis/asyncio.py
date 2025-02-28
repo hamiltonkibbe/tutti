@@ -124,9 +124,10 @@ class Semaphore(AsyncSemaphoreABC):
         lock_name: str,
         value: int,
         timeout: float,
+        conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
-        self._conn = Redis(**get_redis_connection_info())
+        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._lock_name = lock_name
         self._value = value
         self._timeout = timeout
