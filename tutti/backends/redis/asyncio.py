@@ -5,8 +5,6 @@
 
 """Redis distributed synchronization primitive backend"""
 
-from typing import Optional
-
 import logging
 
 from redis.asyncio import Redis
@@ -53,7 +51,7 @@ class RedisWrapper:
         value: int = 1,
         blocking: bool = True,
         timeout: float = -1
-    ) -> Optional[RedisSemaphoreHandle]:
+    ) -> RedisSemaphoreHandle | None:
         return await aacquire_semaphore(
             conn, lock_name, value, blocking, timeout
         )
@@ -69,18 +67,18 @@ class Lock(AsyncLockABC):
         self,
         lock_name: str,
         blocking: bool = True,
-        timeout: Optional[float] = None,
-        conn: Optional[Redis] = None,
+        timeout: float | None = None,
+        conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
         self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
-        self._handle: Optional[RedisLock] = None
+        self._handle: RedisLock | None = None
         self._blocking = blocking
         self._timeout = timeout
         self._lock_name = lock_name
         self._redis_wrapper = redis_wrapper
 
-    async def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
+    async def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
         try:
             lock, result = await self._redis_wrapper.acquire_lock(
                 self._conn,
@@ -114,7 +112,7 @@ class Lock(AsyncLockABC):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         return await self.release()
 
-    def _get_timeout(self, timeout: Optional[float] = None) -> Optional[float]:
+    def _get_timeout(self, timeout: float | None = None) -> float | None:
         return self._timeout if self._timeout is not None else timeout
 
 
@@ -131,13 +129,13 @@ class Semaphore(AsyncSemaphoreABC):
         self._lock_name = lock_name
         self._value = value
         self._timeout = timeout
-        self._handle: Optional[RedisSemaphoreHandle] = None
+        self._handle: RedisSemaphoreHandle | None = None
         self._redis_wrapper = redis_wrapper
 
     async def acquire(
         self,
         blocking: bool = True,
-        timeout: Optional[float] = None
+        timeout: float | None = None
     ) -> bool:
         timeout_float = self._get_timeout(timeout)
         lock_name = f"{self._lock_name}-lock"
@@ -177,7 +175,7 @@ class Semaphore(AsyncSemaphoreABC):
         if self._handle:
             return await self.release()
 
-    def _get_timeout(self, timeout: Optional[float] = None) -> float:
+    def _get_timeout(self, timeout: float | None = None) -> float:
         return self._timeout if self._timeout is not None else timeout if timeout is not None else -1
 
 
