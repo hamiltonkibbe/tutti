@@ -14,6 +14,14 @@ from typing import Optional, Type
 TUTTI_LOGGER_NAME = "tutti"
 
 
+class LockConfig:
+    pass
+
+
+class SemaphoreConfig:
+    pass
+
+
 class LockABC(ABC):
     """Abstract base class for Lock primitive
 
@@ -88,6 +96,14 @@ class SemaphoreABC(ABC):
 
     @abstractmethod
     def release(self, n: int = 1) -> None:
+        pass
+
+    @abstractmethod
+    def __enter__(self) -> "SemaphoreABC":
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Optional[bool]:
         pass
 
 
@@ -165,4 +181,12 @@ class AsyncSemaphoreABC(ABC):
 
     @abstractmethod
     async def release(self) -> None:
+        pass
+
+    @abstractmethod
+    async def __aenter__(self) -> "AsyncSemaphoreABC":
+        pass
+
+    @abstractmethod
+    async def __aexit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Optional[bool]:
         pass

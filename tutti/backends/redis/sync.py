@@ -12,8 +12,8 @@ from redis.lock import Lock as RedisLock
 
 from tutti.base import LockABC, SemaphoreABC, TUTTI_LOGGER_NAME
 
+from .connection import get_sync_redis
 from .utils import (
-    get_redis_connection_info,
     acquire_lock,
     release_lock,
     acquire_semaphore,
@@ -64,17 +64,23 @@ class Lock(LockABC):
     def __init__(
         self,
         lock_name: str,
-        timeout: float,
+        connection_url: str,
+        timeout: float | None = None,
         blocking: bool = True,
         conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
-        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._handle: RedisLock | None = None
         self._blocking = blocking
         self._timeout = timeout
         self._lock_name = lock_name
+        self._connection_url = connection_url
         self._redis_wrapper = redis_wrapper
+
+        if conn is not None and isinstance(conn, Redis):
+            self._conn = conn
+        else:
+            self._conn = get_sync_redis(connection_url)
 
     def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
         try:
@@ -120,15 +126,21 @@ class Semaphore(SemaphoreABC):
         lock_name: str,
         value: int,
         timeout: float,
+        connection_url: str,
         conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
-        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._value = value
         self._handle: RedisSemaphoreHandle | None = None
         self._lock_name = lock_name
         self._timeout = timeout
+        self._connection_url = connection_url
         self._redis_wrapper = redis_wrapper
+
+        if conn is not None and isinstance(conn, Redis):
+            self._conn = conn
+        else:
+            self._conn = get_sync_redis(connection_url)
 
     def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
         timeout_float = self._get_timeout(timeout)
@@ -137,6 +149,7 @@ class Semaphore(SemaphoreABC):
             lock_name=lock_name,
             blocking=blocking,
             timeout=timeout_float,
+            connection_url=self._connection_url,
             conn=self._conn,
             redis_wrapper=self._redis_wrapper
         ):

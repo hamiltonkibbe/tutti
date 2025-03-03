@@ -4,12 +4,8 @@
 # Copyright 2021 Hamilton Kibbe <ham@hamiltonkib.be>
 
 import asyncio
-import os
 import time
 import uuid
-
-from functools import lru_cache
-from typing import TypedDict
 
 from redis import Redis
 from redis.lock import Lock as RedisLock
@@ -17,21 +13,6 @@ from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.lock import Lock as AsyncRedisLock
 
 from .types import RedisSemaphoreHandle
-
-
-class RedisConnectionInfo(TypedDict):
-    host: str
-    port: int
-    db: int
-
-
-@lru_cache
-def get_redis_connection_info() -> RedisConnectionInfo:
-    return {
-        "host": os.getenv("TUTTI_REDIS_HOST", "localhost"),
-        "port": int(os.getenv("TUTTI_REDIS_PORT", 6379)),
-        "db": int(os.getenv("TUTTI_REDIS_DB", 0)),
-    }
 
 
 def acquire_lock(
@@ -140,8 +121,10 @@ async def aacquire_semaphore(
         pipeline.zadd(czset, {identifier: counter})
         pipeline.zrank(czset, identifier)
         result = await pipeline.execute()
+
         if result[-1] < value:
             return RedisSemaphoreHandle(lock_name, identifier)
+
         pipeline.zrem(lock_name, identifier)
         pipeline.zrem(czset, identifier)
         await pipeline.execute()

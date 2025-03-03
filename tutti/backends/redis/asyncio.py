@@ -12,7 +12,7 @@ from redis.asyncio.lock import Lock as RedisLock
 
 from tutti.base import AsyncLockABC, AsyncSemaphoreABC, TUTTI_LOGGER_NAME
 
-from .utils import get_redis_connection_info
+from .connection import get_async_redis
 from .utils import (
     aacquire_lock,
     arelease_lock,
@@ -24,6 +24,34 @@ from .types import RedisSemaphoreHandle
 
 
 logger = logging.getLogger(TUTTI_LOGGER_NAME)
+
+
+async def get_redis_connection(redis_url: str) -> Redis:
+    """Create a Redis connection.
+
+    Parameters
+    ----------
+    redis_url : str
+        The Redis connection URL.
+    Returns
+    -------
+    Redis
+        A Redis connection object.
+    """
+    conn = Redis.from_url(redis_url)
+    connection_success = await _test_redis_connection(conn)
+    if not connection_success:
+        raise RuntimeError("Failed to connect to Redis")
+    return conn
+
+
+async def _test_redis_connection(conn: Redis) -> bool:
+    try:
+        result = await conn.ping()
+        return result
+    except Exception as e:
+        logger.error(f"Redis connection test failed: {e}")
+        return False
 
 
 class RedisWrapper:
@@ -66,17 +94,22 @@ class Lock(AsyncLockABC):
     def __init__(
         self,
         lock_name: str,
+        connection_url: str,
         blocking: bool = True,
         timeout: float | None = None,
         conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
-        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._handle: RedisLock | None = None
         self._blocking = blocking
         self._timeout = timeout
         self._lock_name = lock_name
         self._redis_wrapper = redis_wrapper
+
+        if conn is not None and isinstance(conn, Redis):
+            self._conn = conn
+        else:
+            self._conn = get_async_redis(connection_url)
 
     async def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
         try:
@@ -122,15 +155,21 @@ class Semaphore(AsyncSemaphoreABC):
         lock_name: str,
         value: int,
         timeout: float,
+        connection_url: str,
         conn: Redis | None = None,
         redis_wrapper: type[RedisWrapper] = RedisWrapper
     ) -> None:
-        self._conn = conn if conn is not None else Redis(**get_redis_connection_info())
         self._lock_name = lock_name
         self._value = value
         self._timeout = timeout
         self._handle: RedisSemaphoreHandle | None = None
         self._redis_wrapper = redis_wrapper
+        self._connection_url = connection_url
+
+        if conn is not None and isinstance(conn, Redis):
+            self._conn = conn
+        else:
+            self._conn = get_async_redis(connection_url)
 
     async def acquire(
         self,
@@ -141,6 +180,7 @@ class Semaphore(AsyncSemaphoreABC):
         lock_name = f"{self._lock_name}-lock"
         async with Lock(
             lock_name=lock_name,
+            connection_url=self._connection_url,
             blocking=blocking,
             timeout=timeout_float,
             conn=self._conn,

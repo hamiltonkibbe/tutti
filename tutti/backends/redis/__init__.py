@@ -4,6 +4,8 @@ from .sync import BoundedSemaphore
 from .asyncio import Lock as AsyncLock
 from .asyncio import Semaphore as AsyncSemaphore
 from .asyncio import BoundedSemaphore as AsyncBoundedSemaphore
+from .types import RedisLockConfig
+from .types import RedisSemaphoreConfig
 
 
 __all__ = [
@@ -12,5 +14,7 @@ __all__ = [
     "BoundedSemaphore",
     "AsyncLock",
     "AsyncSemaphore",
-    "AsyncBoundedSemaphore"
+    "AsyncBoundedSemaphore",
+    "RedisLockConfig",
+    "RedisSemaphoreConfig",
 ]
