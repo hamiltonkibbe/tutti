@@ -35,25 +35,45 @@ Getting Started
 
 .. code-block:: python
 
-   from tutti.backends.redis import Lock, Semaphore
-   from tutti.backends.redis import AsyncLock, AsyncSemaphore
+   from tutti import RedisLockConfig
+   from tutti import RedisSemaphoreConfig
+   from tutti import Lock
+   from tutti import Semaphore
+   from tutti.asyncio import Lock as AsyncLock
+   from tutti.asyncio import Semaphore as AsyncSemaphore
 
 
-   with Lock("demo-time", timeout=5):
-       print("Synchronized across machines!")
+   REDIS_LOCK_CONFIG = RedisLockConfig(
+       connection_url="redis://localhost:6379/0",
+       name="test_lock",
+       timeout=10,
+       blocking=True,
+   )
+
+   REDIS_SEMAPHORE_CONFIG = RedisSemaphoreConfig(
+       connection_url="redis://localhost:6379/0",
+       max_concurrency=5,
+       lock=REDIS_LOCK_CONFIG,
+   )
+
+
+   with Lock(REDIS_LOCK_CONFIG):
+       print("Locks!")
        access_critical_resource()
 
-   with Semaphore(lock_name="demo-time", value=2, timeout=5):
-       print("Semaphores too!")
+
+   with Semaphore(REDIS_SEMAPHORE_CONFIG):
+       print("Semaphores too!?")
        access_less_critical_resource()
 
 
-   async with AsyncLock("demo-time", timeout=5):
+   async with AsyncLock(REDIS_LOCK_CONFIG):
        print("Synchronized across machines!")
        await access_critical_resource()
-   
-   async with AsyncSemaphore(lock_name="demo-time", value=2, timeout=5):
-       print("Synchronized across machines!")
+
+
+   async with AsyncSemaphore(REDIS_SEMAPHORE_CONFIG):
+       print("And it supports asyncio!?")
        await access_critical_resource()
 
 Roadmap

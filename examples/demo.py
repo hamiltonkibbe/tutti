@@ -9,7 +9,24 @@ import time
 
 from colorama import Fore, Style
 
-from tutti.backends.redis import Lock, Semaphore
+from tutti import RedisLockConfig, RedisSemaphoreConfig
+from tutti import Lock, Semaphore
+
+
+CONNNECTION_URL = "redis://localhost:6379/0"
+
+REDIS_LOCK_CONFIG = RedisLockConfig(
+    connection_url=CONNNECTION_URL,
+    name="demo-lock",
+    blocking=True,
+    timeout=5,
+)
+
+REDIS_SEMAPHORE_CONFIG = RedisSemaphoreConfig(
+    connection_url=CONNNECTION_URL,
+    max_concurrency=2,
+    lock=REDIS_LOCK_CONFIG,
+)
 
 
 def pprint(data, process_id):
@@ -25,7 +42,7 @@ def use_protected_resource():
 def access_exclusive_resource(process_id: int) -> None:
     """Use a distributed lock to limit access to a critical resource"""
 
-    with Lock("demo-time", timeout=5):
+    with Lock(REDIS_LOCK_CONFIG):
         pprint(f"Process {process_id} Entering critical section", process_id)
         use_protected_resource()
         pprint(f"Process {process_id} Leaving critical section", process_id)
@@ -34,7 +51,7 @@ def access_exclusive_resource(process_id: int) -> None:
 def access_limited_resource(process_id: int) -> None:
     """Use a distributed semaphore to limit access to a critical resource"""
 
-    with Semaphore(lock_name="demo-time", value=2, timeout=5):
+    with Semaphore(REDIS_SEMAPHORE_CONFIG):
         pprint(f"Process {process_id} Entering critical section", process_id)
         use_protected_resource()
         pprint(f"Process {process_id} Leaving critical section", process_id)
