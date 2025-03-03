@@ -35,22 +35,29 @@ Getting Started
 
 .. code-block:: python
 
-   from tutti import Lock, Semaphore
+   from tutti.backends.redis import Lock, Semaphore
+   from tutti.backends.redis import AsyncLock, AsyncSemaphore
 
 
-   with Lock():
+   with Lock("demo-time", timeout=5):
        print("Synchronized across machines!")
        access_critical_resource()
 
-   with Semaphore(value=2):
+   with Semaphore(lock_name="demo-time", value=2, timeout=5):
        print("Semaphores too!")
        access_less_critical_resource()
 
 
+   async with AsyncLock("demo-time", timeout=5):
+       print("Synchronized across machines!")
+       await access_critical_resource()
+   
+   async with AsyncSemaphore(lock_name="demo-time", value=2, timeout=5):
+       print("Synchronized across machines!")
+       await access_critical_resource()
 
 Roadmap
 =======
-- ``asyncio`` synchronization primitives (:py:class:`asyncio.Lock`, :py:class:`asyncio.Semaphore`, etc)
 - AWS/Azure service backends
 
 
