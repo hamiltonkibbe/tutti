@@ -37,8 +37,9 @@ REDIS_LOCK_CONFIG = RedisLockConfig(
 
 REDIS_SEMAPHORE_CONFIG = RedisSemaphoreConfig(
     connection_url="redis://localhost:6379/0",
+    name="test_semaphore",
     max_concurrency=5,
-    lock=REDIS_LOCK_CONFIG,
+    lock_timeout=10
 )
 
 

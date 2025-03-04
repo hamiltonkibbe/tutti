@@ -4,9 +4,8 @@ from tutti import (
     Lock,
     Semaphore,
     BoundedSemaphore,
-    RedisLockConfig,
-    RedisSemaphoreConfig,
 )
+from tutti.configuration import RedisLockConfig, RedisSemaphoreConfig
 
 
 from tutti.backends.redis import (
@@ -60,12 +59,8 @@ def test_redis_semaphore_factory():
     config = RedisSemaphoreConfig(
         connection_url=FAKE_CONNECTION_URL,
         max_concurrency=5,
-        lock=RedisLockConfig(
-            connection_url=FAKE_CONNECTION_URL,
-            name="test_semaphore_lock",
-            timeout=10,
-            blocking=True,
-        ),
+        name="test_semaphore",
+        lock_timeout=10,
     )
 
     # When
@@ -88,12 +83,8 @@ def test_redis_bounded_semaphore_factory():
     config = RedisSemaphoreConfig(
         connection_url=FAKE_CONNECTION_URL,
         max_concurrency=5,
-        lock=RedisLockConfig(
-            connection_url=FAKE_CONNECTION_URL,
-            name="test_bounded_semaphore_lock",
-            timeout=10,
-            blocking=True,
-        ),
+        name="test-semaphore",
+        lock_timeout=10,
     )
 
     # When

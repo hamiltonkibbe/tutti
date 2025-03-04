@@ -7,6 +7,7 @@
 
 """
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from types import TracebackType
 from typing import Optional, Type
 
@@ -14,14 +15,35 @@ from typing import Optional, Type
 TUTTI_LOGGER_NAME = "tutti"
 
 
+@dataclass(kw_only=True)
 class LockConfig(ABC):
-    """Lock congfiguration Base class."""
-    pass
+    """Lock congfiguration Base class.
+
+    Parameters:
+        name (str):
+            The name of the Redis Lock.
+        timeout (float):
+            The timeout for acquiring the lock, in seconds
+        blocking (bool):
+            Whether to block while waiting for the lock to be released. Defaults to `True`.
+    """
+    name: str
+    timeout: float
+    blocking: bool = True
 
 
+@dataclass
 class SemaphoreConfig(ABC):
-    """Semaphore congfiguration Base class"""
-    pass
+    """Semaphore congfiguration Base class.
+
+    Parameters:
+        name (str):
+            The name of the Semaphore.
+        max_concurrency (int):
+            The maximum number of concurrent accesses to the resource.
+    """
+    name: str
+    max_concurrency: int
 
 
 class LockABC(ABC):

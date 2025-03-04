@@ -18,14 +18,15 @@ CONNNECTION_URL = "redis://localhost:6379/0"
 REDIS_LOCK_CONFIG = RedisLockConfig(
     connection_url=CONNNECTION_URL,
     name="demo-lock",
-    blocking=True,
     timeout=5,
+    blocking=True,
 )
 
 REDIS_SEMAPHORE_CONFIG = RedisSemaphoreConfig(
     connection_url=CONNNECTION_URL,
     max_concurrency=2,
-    lock=REDIS_LOCK_CONFIG,
+    name="demo-semaphore",
+    lock_timeout=5,
 )
 
 

@@ -133,8 +133,8 @@ def _semaphore_factory(config: SemaphoreConfig) -> AsyncSemaphoreABC:
             return RedisAsyncSemaphore(
                 connection_url=config.connection_url,
                 value=config.max_concurrency,
-                lock_name=config.lock.name,
-                timeout=config.lock.timeout,
+                lock_name=config.name,
+                timeout=config.lock_timeout,
             )
         case _:
             raise NotImplementedError(f"The {config} backend is not implemented for asyncio semaphores.")
@@ -154,8 +154,8 @@ def _bounded_semaphore_factory(config: SemaphoreConfig) -> AsyncSemaphoreABC:
             return RedisAsyncBoundedSemaphore(
                 connection_url=config.connection_url,
                 value=config.max_concurrency,
-                lock_name=config.lock.name,
-                timeout=config.lock.timeout,
+                lock_name=config.name,
+                timeout=config.lock_timeout,
             )
         case _:
             raise NotImplementedError(f"The {config} backend is not implemented for asyncio bounded semaphores.")
