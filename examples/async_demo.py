@@ -7,11 +7,28 @@ import asyncio
 
 from colorama import Fore, Style
 
-from tutti.backends.redis import AsyncLock, AsyncSemaphore
+from tutti import RedisLockConfig, RedisSemaphoreConfig
+from tutti.asyncio import Lock, Semaphore
 
 
-def pprint(data, process_id):
-    color = [Fore.CYAN, Fore.MAGENTA, Fore.YELLOW, Fore.GREEN, Fore.BLUE, Fore.RED][process_id]
+CONNNECTION_URL = "redis://localhost:6379/0"
+
+REDIS_LOCK_CONFIG = RedisLockConfig(
+    connection_url=CONNNECTION_URL,
+    name="demo-lock",
+    blocking=True,
+    timeout=5,
+)
+
+REDIS_SEMAPHORE_CONFIG = RedisSemaphoreConfig(
+    connection_url=CONNNECTION_URL,
+    max_concurrency=2,
+    lock=REDIS_LOCK_CONFIG,
+)
+
+
+def pprint(data, task_number):
+    color = [Fore.CYAN, Fore.MAGENTA, Fore.YELLOW, Fore.GREEN, Fore.BLUE, Fore.RED][task_number]
     print(f"{color}    {data}{Style.RESET_ALL}")
 
 
@@ -20,27 +37,27 @@ async def use_protected_resource():
     await asyncio.sleep(0.3)
 
 
-async def access_exclusive_resource(process_id: int) -> None:
+async def access_exclusive_resource(task_number: int) -> None:
     """Use a distributed lock to limit access to a critical resource"""
 
-    async with AsyncLock("demo-time", timeout=5):
-        pprint(f"Process {process_id} Entering critical section", process_id)
+    async with Lock(REDIS_LOCK_CONFIG):
+        pprint(f"Task {task_number} Entering critical section", task_number)
         await use_protected_resource()
-        pprint(f"Process {process_id} Leaving critical section", process_id)
+        pprint(f"Task {task_number} Leaving critical section", task_number)
 
 
-async def access_limited_resource(process_id: int) -> None:
+async def access_limited_resource(task_number: int) -> None:
     """Use a distributed semaphore to limit access to a critical resource"""
 
-    async with AsyncSemaphore(lock_name="demo-time", value=2, timeout=5):
-        pprint(f"Process {process_id} Entering critical section", process_id)
+    async with Semaphore(REDIS_SEMAPHORE_CONFIG):
+        pprint(f"Task {task_number} Entering critical section", task_number)
         await use_protected_resource()
-        pprint(f"Process {process_id} Leaving critical section", process_id)
+        pprint(f"Task {task_number} Leaving critical section", task_number)
 
 
 async def main():
     print("\n============================================================================")
-    print("Lock demo: Only one process may be in the critical section at a time")
+    print("Lock demo: Only one task may be in the critical section at a time")
     print("============================================================================")
     lock_tasks = [
         asyncio.create_task(access_exclusive_resource(i)) for i in range(4)
@@ -48,7 +65,7 @@ async def main():
     await asyncio.gather(*lock_tasks)
 
     print("\n============================================================================")
-    print("Semaphore demo: Up to two processes may be in the critical section at a time")
+    print("Semaphore demo: Up to two tasks may be in the critical section at a time")
     print("============================================================================")
     semaphore_tasks = [
         asyncio.create_task(access_limited_resource(i)) for i in range(4)

@@ -44,13 +44,14 @@ async def test_lock_success():
 
     # When
     async with Lock(
+        connection_url="shouldn't_matter",
         lock_name="test_lock",
         timeout=10,
         conn=MockRedisConnection(),
         redis_wrapper=mock_redis_wrapper
     ) as lock:
         # Then
-        assert lock._handle == mock_redis_lock
+        assert lock._handle == mock_redis_lock  # type: ignore
 
     mock_redis_wrapper.acquire_lock.assert_awaited_once()
     mock_redis_wrapper.release_lock.assert_awaited_once()
@@ -61,11 +62,11 @@ async def test_lock_failure_to_acquire():
     Given:
         - A RedisWraper mock that does not azquire the lock
         - A Tutti redis Lock
-    
+
     When:
         - The lock is acquired
         - The lock is released
-    
+
     Then:
         - A RuntimeError error is raised
         - acquire_lock is awaited
@@ -79,10 +80,11 @@ async def test_lock_failure_to_acquire():
     # When
     with pytest.raises(RuntimeError):
         async with Lock(
+            connection_url="shouldn't_matter",
             lock_name="test_lock",
             timeout=10,
             conn=MockRedisConnection(),
-            redis_wrapper=mock_redis_wrapper
+            redis_wrapper=mock_redis_wrapper  # type: ignore
         ) as lock:
             # Then
             assert lock._handle is None
@@ -96,11 +98,11 @@ async def test_lock_raises():
     Given:
         - A RedisWraper mock that raises when acquiring the lock
         - A Tutti redis Lock
-    
+
     When:
         - The lock is acquired
         - The lock is released
-    
+
     Then:
         - A RuntimeError error is raised
         - acquire_lock is awaited
@@ -113,10 +115,11 @@ async def test_lock_raises():
     # When
     with pytest.raises(RuntimeError):
         async with Lock(
+            connection_url="shouldn't_matter",
             lock_name="test_lock",
             timeout=10,
             conn=MockRedisConnection(),
-            redis_wrapper=mock_redis_wrapper
+            redis_wrapper=mock_redis_wrapper  # type: ignore
         ) as lock:
             # Then
             assert lock._handle is None
@@ -149,11 +152,12 @@ async def test_semaphore_success():
 
     # When
     async with Semaphore(
+        connection_url="shouldn't_matter",
         lock_name="test_lock",
         value=1,
         timeout=10,
         conn=MockRedisConnection(),
-        redis_wrapper=mock_redis_wrapper
+        redis_wrapper=mock_redis_wrapper  # type: ignore
     ) as semaphore:
         # Then
         assert semaphore._handle == semaphore_handle
@@ -187,11 +191,12 @@ async def test_semaphore_fail_to_acquire():
     # When
     with pytest.raises(RuntimeError):
         async with Semaphore(
+            connection_url="shouldn't_matter",
             lock_name="test_lock",
             value=1,
             timeout=10,
             conn=MockRedisConnection(),
-            redis_wrapper=mock_redis_wrapper
+            redis_wrapper=mock_redis_wrapper  # type: ignore
         ) as semaphore:
             # Then
             assert semaphore._handle is None
@@ -222,11 +227,12 @@ async def test_semaphore_fail_to_acquire_lock():
     # When
     with pytest.raises(RuntimeError):
         async with Semaphore(
+            connection_url="shouldn't_matter",
             lock_name="test_lock",
             value=1,
             timeout=10,
             conn=MockRedisConnection(),
-            redis_wrapper=mock_redis_wrapper
+            redis_wrapper=mock_redis_wrapper  # type: ignore
         ) as semaphore:
             # Then
             assert semaphore._handle is None
