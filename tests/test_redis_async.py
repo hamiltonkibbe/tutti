@@ -202,7 +202,7 @@ async def test_semaphore_fail_to_acquire():
             assert semaphore._handle is None
 
     mock_redis_wrapper.acquire_semaphore.assert_awaited_once()
-    mock_redis_wrapper.release_semaphore.not_awaited()
+    await mock_redis_wrapper.release_semaphore.not_awaited()
 
 
 async def test_semaphore_fail_to_acquire_lock():
@@ -237,6 +237,5 @@ async def test_semaphore_fail_to_acquire_lock():
             # Then
             assert semaphore._handle is None
 
-    mock_redis_wrapper.acquire_semaphore.not_awaited()
-    mock_redis_wrapper.release_semaphore.not_awaited()
-
+    await mock_redis_wrapper.acquire_semaphore.not_awaited()
+    await mock_redis_wrapper.release_semaphore.not_awaited()
