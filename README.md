@@ -20,12 +20,12 @@ The easiest way to install is to just use `pip`:
 ## Example 
 
 ```python
-from tutti import RedisLockConfig
-from tutti import RedisSemaphoreConfig
 from tutti import Lock
 from tutti import Semaphore
 from tutti.asyncio import Lock as AsyncLock
 from tutti.asyncio import Semaphore as AsyncSemaphore
+from tutti.configuration import RedisLockConfig
+from tutti.configuration import RedisSemaphoreConfig
 
 
 REDIS_LOCK_CONFIG = RedisLockConfig(

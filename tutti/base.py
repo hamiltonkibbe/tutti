@@ -14,11 +14,13 @@ from typing import Optional, Type
 TUTTI_LOGGER_NAME = "tutti"
 
 
-class LockConfig:
+class LockConfig(ABC):
+    """Lock congfiguration Base class."""
     pass
 
 
-class SemaphoreConfig:
+class SemaphoreConfig(ABC):
+    """Semaphore congfiguration Base class"""
     pass
 
 

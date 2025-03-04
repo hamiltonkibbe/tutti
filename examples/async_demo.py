@@ -7,7 +7,7 @@ import asyncio
 
 from colorama import Fore, Style
 
-from tutti import RedisLockConfig, RedisSemaphoreConfig
+from tutti.configuration import RedisLockConfig, RedisSemaphoreConfig
 from tutti.asyncio import Lock, Semaphore
 
 

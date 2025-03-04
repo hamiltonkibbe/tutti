@@ -10,16 +10,85 @@ from .backends.redis import (
 
 
 class Lock:
+    """Factory class for creating lock instances.
+    This class is a factory for creating lock instances based on the provided
+    configuration. It uses the `__new__` method to create an instance of the
+    appropriate lock backend.
+
+    Parameters
+    ----------
+    config: LockConfig
+        The configuration object for the lock. This should be an instance of
+        a subclass of LockConfig, such as RedisLockConfig.
+
+    Raises
+    ------
+    NotImplementedError
+        If the backend is not implemented.
+
+    Returns
+    -------
+    LockABC
+        An instance of the appropriate lock backend. The type of the lock
+        backend is determined by the configuration object passed to the
+        factory
+    """
     def __new__(cls, config: LockConfig) -> LockABC:
         return _lock_factory(config)
 
 
 class Semaphore:
+    """Factory class for creating semaphore instances.
+    This class is a factory for creating semaphore instances based on the provided
+    configuration. It uses the `__new__` method to create an instance of the
+    appropriate semaphore backend.
+
+    Parameters
+    ----------
+    config: SemaphoreConfig
+        The configuration object for the semaphore. This should be an instance of
+        a subclass of SemaphoreConfig, such as RedisSemaphoreConfig.
+
+    Raises
+    ------
+    NotImplementedError
+        If the backend is not implemented.
+
+    Returns
+    -------
+    SemaphoreABC
+        An instance of the appropriate semaphore backend. The type of the semaphore
+        backend is determined by the configuration object passed to the
+        factory
+    """
     def __new__(cls, config: SemaphoreConfig) -> SemaphoreABC:
         return _semaphore_factory(config)
 
 
 class BoundedSemaphore:
+    """Factory class for creating bounded semaphore instances.
+    This class is a factory for creating semaphore instances based on the provided
+    configuration. It uses the `__new__` method to create an instance of the
+    appropriate semaphore backend.
+
+    Parameters
+    ----------
+    config: SemaphoreConfig
+        The configuration object for the semaphore. This should be an instance of
+        a subclass of SemaphoreConfig, such as RedisSemaphoreConfig.
+
+    Raises
+    ------
+    NotImplementedError
+        If the backend is not implemented.
+
+    Returns
+    -------
+    SemaphoreABC
+        An instance of the appropriate semaphore backend. The type of the semaphore
+        backend is determined by the configuration object passed to the
+        factory
+    """
     def __new__(cls, config: SemaphoreConfig) -> SemaphoreABC:
         return _bounded_semaphore_factory(config)
 

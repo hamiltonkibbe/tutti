@@ -9,8 +9,8 @@ import time
 
 from colorama import Fore, Style
 
-from tutti import RedisLockConfig, RedisSemaphoreConfig
 from tutti import Lock, Semaphore
+from tutti.configuration import RedisLockConfig, RedisSemaphoreConfig
 
 
 CONNNECTION_URL = "redis://localhost:6379/0"
